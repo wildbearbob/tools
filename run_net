@@ -1,0 +1,42 @@
+#!/usr/bin/sh
+
+function wait() {
+	if [ $? -eq 0 ]; then
+		echo $2
+		sleep $1
+	else
+		echo $3
+		exit 1
+	fi
+}
+
+connect() {
+	echo "connectting..."
+	sudo dhcpcd
+	wait 10 "ok: dhcpcd" "error: dhcpcd"
+	sudo dnscrypt-proxy -service start -config /etc/dnscrypt-proxy/dnscrypt-proxy.toml
+	wait 1 "ok: dnscrypt-proxy" "error: dnscrypt-proxy"
+}
+
+disconnect() {
+	echo "disconnectting..."
+	sudo dnscrypt-proxy -service stop -config /etc/dnscrypt-proxy/dnscrypt-proxy.toml
+	wait 5 "ok: dnscrypt-proxy" "error: dnscrypt-proxy"
+	sudo ip link set enp3s0 down
+	wait 1 "ok: link enp3s0 down" ":error: link enp3s0 down"
+	sudo dhcpcd -x
+	wait 1 "ok: dhcpcd" "error: dhcpcd"
+}
+
+case "$1" in
+	start )
+	connect
+	sudo -k; exit 0 ;;
+	stop )
+	disconnect
+	sudo -k; exit 0 ;;
+	restart )
+	disconnect
+	connect
+	sudo -k; exit 0 ;;
+esac
